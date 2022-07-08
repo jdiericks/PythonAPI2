@@ -1,8 +1,9 @@
 # app/main.py
-from http.client import HTTPException
+from genericpath import exists
+from fastapi import HTTPException
 from fastapi import FastAPI
 
-from app.db import database, User, UserCreate, Report
+from app.db import database, User, Report
 
 from passlib.context import CryptContext
 
@@ -15,7 +16,7 @@ def get_password_hash(password):
     return pwd_context.hash(password)
 
 def auth_user(email, password):
-    user = User.get_by_email(email)
+    user = User.objects.get(email=email)
     if user is None:
         return None
     if not verify_password(password, user.password):
@@ -28,12 +29,13 @@ app = FastAPI(title="Service Reportr", description="Service Reportr API", versio
 async def root():
     return {"message": "Hello World"}
 
-@app.post("/user")
-async def create_user(user: UserCreate):
+@app.post("/user", response_model=User, response_model_exclude={"password"})
+async def create_user(user: User):
     hashed_pass = get_password_hash(user.password)
-    user = User.get_by_email(user.email)
-    if user:
-        raise HTTPException(status_code=400, detail="Email already registered")
+    exists = await User.objects.filter(email=user.email).exists()
+    if exists:
+        raise HTTPException(status_code=400, detail="User already exists")
+    
     user = User(email=user.email, password=hashed_pass, fname=user.fname, lname=user.lname)
     await user.save()
     return user
@@ -42,7 +44,7 @@ async def create_user(user: UserCreate):
 async def get_users():
     return await User.objects.select_related(User.reports).filter(active=True).all()
 
-@app.post("/report")
+@app.post("/report", response_model=Report, response_model_exclude={"user"})
 async def create_report(report: Report):
     await report.save()
     return report
@@ -56,8 +58,11 @@ async def startup():
     if not database.is_connected:
         await database.connect()
     # create a dummy user
-    await User.objects.get_or_create(email="test@test.com", fname="Test", lname="User")
-    await Report.objects.get_or_create(user=1, service_hours=10, service_mintues=15, placements=3, videos=0, return_visits=4, bible_studies=1, notes="Conducted a bible study with Jim in June")
+    demo_user = await User.objects.filter(email="test@test.com").exists()
+    demo_report = await Report.objects.filter(id=1).exists()
+    if not demo_user and not demo_report:
+        await User.objects.get_or_create(email="test@test.com", fname="Test", lname="User", password=get_password_hash("test"))
+        await Report.objects.get_or_create(user=1, service_hours=10, service_mintues=15, placements=3, videos=0, return_visits=4, bible_studies=1, notes="Conducted a bible study with Jim in June")
 
 @app.on_event("shutdown")
 async def shutdown():

@@ -22,9 +22,8 @@ class User(ormar.Model):
     fname: str = ormar.String(max_length=128, nullable=True)
     lname: str = ormar.String(max_length=128, nullable=True)
     active: bool = ormar.Boolean(default=True, nullable=False)
-
-class UserCreate(User):
     password: str = ormar.String(max_length=128, nullable=False)
+    
 
 class Report(ormar.Model):
     class Meta(BaseMeta):
