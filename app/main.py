@@ -1,4 +1,5 @@
 # app/main.py
+from email import message
 from genericpath import exists
 from fastapi import HTTPException
 from fastapi import FastAPI
@@ -34,7 +35,7 @@ async def create_user(user: User):
     hashed_pass = get_password_hash(user.password)
     exists = await User.objects.filter(email=user.email).exists()
     if exists:
-        raise HTTPException(status_code=400, detail="User already exists")
+        raise HTTPException(status_code=400, message="User already exists")
     
     user = User(email=user.email, password=hashed_pass, fname=user.fname, lname=user.lname)
     await user.save()
